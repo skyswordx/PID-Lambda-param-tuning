@@ -20,7 +20,7 @@ delta_op = 5; % 是阶跃信号的幅值
 
 % 过程变量上一次稳态的值，用来计算 ΔPV
 
-last_steady_state_value = 0; % 这个值是在实际的过程中测量得到的，这里只是一个例子
+last_steady_state_value = 38.8; % 这个值是在实际的过程中测量得到的，这里只是一个例子
 
 % 过程变量和控制器输出的量程
 op_max = 5;
@@ -55,7 +55,8 @@ time = linspace(0, time_max, data_length)';% 生成匹配长度的时间序列�
 tolerance = 1e-5;
 
 
-last_zero_index = find(vofa == 0, 1, 'last'); % find(A, n, 'first') 返回 A 中前 n 个满足条件的索引
+threshold = 0.2; % 设定的阈值
+last_zero_index = find(abs(vofa - last_steady_state_value) < threshold, 1, 'last'); % 找到第一个满足条件的索引
 % 按照上面的示例，返回的索引值是 2
 
 % PV:         0 0 0 2
@@ -118,10 +119,23 @@ lower_index = find(vofa <= target_value, 1, 'last');
 upper_index = find(vofa >= target_value, 1, 'first');
 
 % 进行加权平均计算出63.2%对应的假想横坐标，注意这里运算的不是索引了，是索引兑换成的坐标
-weight_lower = abs(vofa(upper_index) - target_value);
-weight_upper = abs(vofa(lower_index) - target_value);
-weighted_time = (time(lower_index) * weight_upper + time(upper_index) * weight_lower) / ...
-                (weight_lower + weight_upper);
+% weight_lower = abs(vofa(upper_index) - target_value);
+% weight_upper = abs(vofa(lower_index) - target_value);
+% weighted_time = (time(lower_index) * weight_upper + time(upper_index) * weight_lower) / ...
+%                 (weight_lower + weight_upper);
+
+% 根据最后一个小于目标值的点和第一个大于目标值的点进行线性拟合
+x1 = time(lower_index);
+y1 = vofa(lower_index);
+x2 = time(upper_index);
+y2 = vofa(upper_index);
+
+% 计算线性拟合的斜率和截距
+slope = (y2 - y1) / (x2 - x1);
+intercept = y1 - slope * x1;
+
+% 根据 target_value 反算出 weighted_time
+weighted_time = (target_value - intercept) / slope;
 
 delta_t = weighted_time - tau; % 计算从上一个稳态开始变大到这次 63.2% 稳态值的时间                
 
